@@ -197,6 +197,10 @@ func ProcessAliOtherRatios(aliReq *AliVideoRequest) (map[string]float64, error) 
 			"720P":  1,
 			"1080P": 1 / 0.6,
 		},
+		"wan2.6-t2v": {
+			"720P":  1,
+			"1080P": 1 / 0.6,
+		},
 		"wan2.5-t2v-preview": {
 			"480P":  1,
 			"720P":  2,
@@ -271,19 +275,18 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 
 	// 处理分辨率映射
 	if req.Size != "" {
-		// text to video size must be contained *
-		if strings.Contains(req.Model, "t2v") && !strings.Contains(req.Size, "*") {
-			return nil, fmt.Errorf("invalid size: %s, example: %s", req.Size, "1920*1080")
-		}
 		if strings.Contains(req.Size, "*") {
+			// 用户传入了精确像素尺寸（如 1280*720），直接使用
 			aliReq.Parameters.Size = req.Size
 		} else {
-			resolution := strings.ToUpper(req.Size)
-			// 支持 480p, 720p, 1080p 或 480P, 720P, 1080P
-			if !strings.HasSuffix(resolution, "P") {
-				resolution = resolution + "P"
+			// 用户传入简化格式（如 720p / 720P / 720）
+			resolution := strings.ToUpper(strings.TrimSuffix(strings.ToLower(req.Size), "p"))
+			switch resolution {
+			case "480", "720", "1080":
+				aliReq.Parameters.Resolution = resolution + "P"
+			default:
+				return nil, fmt.Errorf("invalid size: %s, supported: 480p, 720p, 1080p or exact pixels like 1280*720", req.Size)
 			}
-			aliReq.Parameters.Resolution = resolution
 		}
 	} else {
 		// 根据模型设置默认分辨率

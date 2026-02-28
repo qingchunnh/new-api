@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -210,6 +211,43 @@ func (a *TaskAdaptor) GetModelList() []string {
 
 func (a *TaskAdaptor) GetChannelName() string {
 	return ChannelName
+}
+
+// EstimateBilling 根据用户请求的 duration 和 resolution 计算 OtherRatios。
+func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return nil
+	}
+
+	payload, err := a.convertToRequestPayload(&req)
+	if err != nil {
+		return nil
+	}
+
+	// 时长
+	duration := int(payload.Duration)
+	if duration <= 0 {
+		duration = 5 // 默认 5 秒
+	}
+	billedSeconds := ((duration + 4) / 5) * 5
+
+	ratios := map[string]float64{
+		"seconds": float64(billedSeconds),
+	}
+
+	// 分辨率倍率（官方定价）
+	// 480p=0.80元/5s, 720p=1.73元/5s, 1080p=3.89元/5s
+	resolution := strings.ToLower(payload.Resolution)
+	switch resolution {
+	case "720p":
+		ratios["resolution-720p"] = 1.73 / 0.80
+	case "1080p":
+		ratios["resolution-1080p"] = 3.89 / 0.80
+	}
+	// 480p 或默认 → 倍率 1.0，不需要设置
+
+	return ratios
 }
 
 func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*requestPayload, error) {

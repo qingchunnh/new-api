@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -191,6 +192,60 @@ func (a *TaskAdaptor) GetModelList() []string {
 
 func (a *TaskAdaptor) GetChannelName() string {
 	return "gemini"
+}
+
+// EstimateBilling 根据用户请求的 durationSeconds 和 resolution 计算 OtherRatios。
+func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return nil
+	}
+
+	// 从 metadata 中解析 Veo 参数
+	var params GeminiVideoGenerationConfig
+	if req.Metadata != nil {
+		_ = taskcommon.UnmarshalMetadata(req.Metadata, &params)
+	}
+
+	// 时长：优先 metadata.durationSeconds，然后 req.Duration/Seconds
+	seconds := int(params.DurationSeconds)
+	if seconds <= 0 {
+		seconds = req.Duration
+	}
+	if seconds <= 0 {
+		s, _ := strconv.Atoi(req.Seconds)
+		seconds = s
+	}
+	if seconds <= 0 {
+		seconds = 4 // Veo 默认 4 秒
+	}
+
+	ratios := map[string]float64{
+		"seconds": float64(seconds),
+	}
+
+	// 分辨率倍率（官方定价）
+	// 720p 与 1080p 同价（倍率 1.0），4K 价格更高且因模型不同而异
+	// veo-3.1-generate-preview:      720p/1080p=$0.40/s, 4K=$0.60/s → 4K倍率=1.5
+	// veo-3.1-fast-generate-preview: 720p/1080p=$0.15/s, 4K=$0.35/s → 4K倍率≈2.333
+	resolution := strings.ToLower(params.Resolution)
+	if resolution == "" && req.Size != "" {
+		resolution = strings.ToLower(req.Size)
+	}
+	if resolution == "4k" {
+		modelName := info.UpstreamModelName
+		if modelName == "" {
+			modelName = info.OriginModelName
+		}
+		if strings.Contains(strings.ToLower(modelName), "fast") {
+			ratios["resolution-4k"] = 0.35 / 0.15
+		} else {
+			ratios["resolution-4k"] = 0.60 / 0.40
+		}
+	}
+	// 720p / 1080p / 默认 → 倍率 1.0，不需要设置
+
+	return ratios
 }
 
 // FetchTask fetch task status
