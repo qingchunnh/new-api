@@ -17,6 +17,9 @@ type ChannelSettings struct {
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+	// ExcludeQuotaStats 不计入额度统计：该渠道产生的消费额度不计入用户总消耗
+	// （概览/钱包）与数据看板额度统计，请求计数与 token 用量仍正常统计，扣费行为不变。
+	ExcludeQuotaStats bool `json:"exclude_quota_stats,omitempty"`
 }
 
 type VertexKeyType string

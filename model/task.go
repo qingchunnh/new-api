@@ -120,6 +120,9 @@ type TaskBillingContext struct {
 	OtherRatios     map[string]float64 `json:"other_ratios,omitempty"`      // 附加倍率（时长、分辨率等）
 	OriginModelName string             `json:"origin_model_name,omitempty"` // 模型名称，必须为OriginModelName
 	PerCallBilling  bool               `json:"per_call_billing,omitempty"`  // 按次计费：跳过轮询阶段的差额结算
+	// ExcludeQuotaStats 任务提交时渠道「不计入额度统计」开关的快照，
+	// 差额结算以此为准，避免结算期间切换开关导致统计口径不一致
+	ExcludeQuotaStats bool `json:"exclude_quota_stats,omitempty"`
 }
 
 // GetUpstreamTaskID 获取上游真实 task ID（用于与 provider 通信）

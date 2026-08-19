@@ -243,16 +243,18 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 			logContent := fmt.Sprintf("模型固定价格 %.2f，分组倍率 %.2f，操作 %s", priceData.ModelPrice, priceData.GroupRatioInfo.GroupRatio, constant.MjActionSwapFace)
 			other := service.GenerateMjOtherInfo(info, priceData)
 			model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
-				ChannelId: info.ChannelId,
-				ModelName: modelName,
-				TokenName: tokenName,
-				Quota:     priceData.Quota,
-				Content:   logContent,
-				TokenId:   info.TokenId,
-				Group:     info.UsingGroup,
-				Other:     other,
+				ChannelId:         info.ChannelId,
+				ModelName:         modelName,
+				TokenName:         tokenName,
+				Quota:             priceData.Quota,
+				Content:           logContent,
+				TokenId:           info.TokenId,
+				Group:             info.UsingGroup,
+				Other:             other,
+				ExcludeQuotaStats: info.ExcludesQuotaStats(),
 			})
-			model.UpdateUserUsedQuotaAndRequestCount(info.UserId, priceData.Quota)
+			// 渠道开启「不计入额度统计」时仅跳过用户总消耗累加（请求计数照常），渠道自身消耗照常统计
+			model.UpdateUserUsedQuotaAndRequestCount(info.UserId, info.StatsQuota(priceData.Quota))
 			model.UpdateChannelUsedQuota(info.ChannelId, priceData.Quota)
 		}
 	}()
@@ -549,16 +551,18 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			logContent := fmt.Sprintf("模型固定价格 %.2f，分组倍率 %.2f，操作 %s，ID %s", priceData.ModelPrice, priceData.GroupRatioInfo.GroupRatio, midjRequest.Action, midjResponse.Result)
 			other := service.GenerateMjOtherInfo(relayInfo, priceData)
 			model.RecordConsumeLog(c, relayInfo.UserId, model.RecordConsumeLogParams{
-				ChannelId: relayInfo.ChannelId,
-				ModelName: modelName,
-				TokenName: tokenName,
-				Quota:     priceData.Quota,
-				Content:   logContent,
-				TokenId:   relayInfo.TokenId,
-				Group:     relayInfo.UsingGroup,
-				Other:     other,
+				ChannelId:         relayInfo.ChannelId,
+				ModelName:         modelName,
+				TokenName:         tokenName,
+				Quota:             priceData.Quota,
+				Content:           logContent,
+				TokenId:           relayInfo.TokenId,
+				Group:             relayInfo.UsingGroup,
+				Other:             other,
+				ExcludeQuotaStats: relayInfo.ExcludesQuotaStats(),
 			})
-			model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, priceData.Quota)
+			// 渠道开启「不计入额度统计」时仅跳过用户总消耗累加（请求计数照常），渠道自身消耗照常统计
+			model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, relayInfo.StatsQuota(priceData.Quota))
 			model.UpdateChannelUsedQuota(relayInfo.ChannelId, priceData.Quota)
 		}
 	}()

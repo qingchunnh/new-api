@@ -338,6 +338,10 @@ type RecordConsumeLogParams struct {
 	IsStream         bool                   `json:"is_stream"`
 	Group            string                 `json:"group"`
 	Other            map[string]interface{} `json:"other"`
+	// ExcludeQuotaStats 为 true 时（渠道开启「不计入额度统计」），
+	// 日志明细仍记录真实额度，但数据看板(quota_data)的额度写 0，
+	// 请求计数与 token 用量照常统计。
+	ExcludeQuotaStats bool `json:"exclude_quota_stats,omitempty"`
 }
 
 func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams) {
@@ -388,11 +392,16 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		logger.LogError(c, "failed to record log: "+err.Error())
 	}
 	if common.DataExportEnabled {
+		// 渠道开启「不计入额度统计」时，看板数据的额度写 0（计数与 token 用量保留）
+		quotaDataQuota := params.Quota
+		if params.ExcludeQuotaStats {
+			quotaDataQuota = 0
+		}
 		LogQuotaData(QuotaDataLogParams{
 			UserID:    userId,
 			Username:  username,
 			ModelName: params.ModelName,
-			Quota:     params.Quota,
+			Quota:     quotaDataQuota,
 			CreatedAt: createdAt,
 			TokenUsed: params.PromptTokens + params.CompletionTokens,
 			UseGroup:  params.Group,
@@ -414,6 +423,9 @@ type RecordTaskBillingLogParams struct {
 	Group     string
 	Other     map[string]interface{}
 	NodeName  string // 任务发起节点；为空时回退当前节点
+	// ExcludeQuotaStats 为 true 时（渠道开启「不计入额度统计」），
+	// 日志明细仍记录真实额度，但数据看板(quota_data)的额度写 0。
+	ExcludeQuotaStats bool
 }
 
 func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
@@ -451,11 +463,16 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 		if nodeName == "" {
 			nodeName = common.NodeName
 		}
+		// 渠道开启「不计入额度统计」时，看板数据的额度写 0（计数与 token 用量保留）
+		quotaDataQuota := params.Quota
+		if params.ExcludeQuotaStats {
+			quotaDataQuota = 0
+		}
 		LogQuotaData(QuotaDataLogParams{
 			UserID:    params.UserId,
 			Username:  username,
 			ModelName: params.ModelName,
-			Quota:     params.Quota,
+			Quota:     quotaDataQuota,
 			CreatedAt: createdAt,
 			UseGroup:  params.Group,
 			TokenID:   params.TokenId,

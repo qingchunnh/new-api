@@ -249,6 +249,13 @@ func getUserQuota(t *testing.T, id int) int {
 	return user.Quota
 }
 
+func getUserUsedQuota(t *testing.T, id int) int {
+	t.Helper()
+	var user model.User
+	require.NoError(t, model.DB.Select("used_quota").Where("id = ?", id).First(&user).Error)
+	return user.UsedQuota
+}
+
 func getTokenRemainQuota(t *testing.T, id int) int {
 	t.Helper()
 	var token model.Token
@@ -490,6 +497,51 @@ func TestRecalculate_NegativeDelta(t *testing.T) {
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeRefund, log.Type)
 	assert.Equal(t, preConsumed-actualQuota, log.Quota)
+}
+
+// 差额结算以任务提交时 BillingContext 快照的「不计入额度统计」开关为准，
+// 与结算时渠道的实时开关无关；扣费（钱包/令牌）不受开关影响。
+func TestRecalculate_ExcludeQuotaStatsSnapshotOverridesLiveSetting(t *testing.T) {
+	cases := []struct {
+		name             string
+		snapshotExcluded bool
+		liveExcluded     bool
+		wantUsedQuota    int
+	}{
+		{"snapshot excluded wins over live normal channel", true, false, 0},
+		{"snapshot normal wins over live excluded channel", false, true, 1000},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			truncate(t)
+			ctx := context.Background()
+
+			const userID, tokenID, channelID = 15, 15, 15
+			const initQuota, preConsumed = 10000, 2000
+			const actualQuota = 3000 // 补差 1000
+			const tokenRemain = 5000
+
+			seedUser(t, userID, initQuota)
+			seedToken(t, tokenID, userID, "sk-recalc-snapshot", tokenRemain)
+			ch := &model.Channel{Id: channelID, Name: "test_channel", Key: "sk-test", Status: common.ChannelStatusEnabled}
+			if tc.liveExcluded {
+				setting := `{"exclude_quota_stats":true}`
+				ch.Setting = &setting
+			}
+			require.NoError(t, model.DB.Create(ch).Error)
+
+			task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+			task.PrivateData.BillingContext.ExcludeQuotaStats = tc.snapshotExcluded
+
+			RecalculateTaskQuota(ctx, task, actualQuota, "adaptor adjustment")
+
+			// 扣费照常：钱包与令牌仍补扣差额
+			assert.Equal(t, initQuota-(actualQuota-preConsumed), getUserQuota(t, userID))
+			assert.Equal(t, tokenRemain-(actualQuota-preConsumed), getTokenRemainQuota(t, tokenID))
+			// 用户总消耗按提交时快照口径累加
+			assert.Equal(t, tc.wantUsedQuota, getUserUsedQuota(t, userID))
+		})
+	}
 }
 
 func TestRecalculate_ZeroDelta(t *testing.T) {

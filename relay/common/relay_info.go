@@ -246,6 +246,25 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	}
 }
 
+// ExcludesQuotaStats reports whether the current channel is excluded from
+// quota statistics (users.used_quota and quota_data quota). Billing itself
+// is unaffected; request count and token usage are still counted.
+func (info *RelayInfo) ExcludesQuotaStats() bool {
+	if info == nil || info.ChannelMeta == nil {
+		return false
+	}
+	return info.ChannelMeta.ChannelSetting.ExcludeQuotaStats
+}
+
+// StatsQuota returns the quota value that should be accumulated into usage
+// statistics: 0 when the channel excludes quota stats, otherwise quota itself.
+func (info *RelayInfo) StatsQuota(quota int) int {
+	if info.ExcludesQuotaStats() {
+		return 0
+	}
+	return quota
+}
+
 func (info *RelayInfo) ToString() string {
 	if info == nil {
 		return "RelayInfo<nil>"
