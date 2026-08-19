@@ -444,8 +444,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		extraContent = append(extraContent, "上游没有返回计费信息，无法扣费（可能是上游超时）")
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, summary.ModelName, relayInfo.FinalPreConsumedQuota))
 	} else {
-		// 渠道开启「不计入额度统计」时仅跳过用户总消耗累加（请求计数照常），渠道自身消耗照常统计
-		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, relayInfo.StatsQuota(summary.Quota))
+		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, summary.Quota)
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, summary.Quota)
 	}
 
@@ -525,19 +524,18 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	attachQuotaSaturation(ctx, relayInfo, other)
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
-		ChannelId:         relayInfo.ChannelId,
-		PromptTokens:      summary.PromptTokens,
-		CompletionTokens:  summary.CompletionTokens,
-		ModelName:         logModel,
-		TokenName:         summary.TokenName,
-		Quota:             summary.Quota,
-		Content:           logContent,
-		TokenId:           relayInfo.TokenId,
-		UseTimeSeconds:    int(summary.UseTimeSeconds),
-		IsStream:          relayInfo.IsStream,
-		Group:             relayInfo.UsingGroup,
-		Other:             other,
-		ExcludeQuotaStats: relayInfo.ExcludesQuotaStats(),
+		ChannelId:        relayInfo.ChannelId,
+		PromptTokens:     summary.PromptTokens,
+		CompletionTokens: summary.CompletionTokens,
+		ModelName:        logModel,
+		TokenName:        summary.TokenName,
+		Quota:            summary.Quota,
+		Content:          logContent,
+		TokenId:          relayInfo.TokenId,
+		UseTimeSeconds:   int(summary.UseTimeSeconds),
+		IsStream:         relayInfo.IsStream,
+		Group:            relayInfo.UsingGroup,
+		Other:            other,
 	})
 	gopool.Go(func() {
 		perfmetrics.RecordRelaySample(relayInfo, true, int64(summary.CompletionTokens))

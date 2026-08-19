@@ -53,18 +53,16 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	}
 	attachQuotaSaturation(c, info, other)
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
-		ChannelId:         info.ChannelId,
-		ModelName:         info.OriginModelName,
-		TokenName:         tokenName,
-		Quota:             info.PriceData.Quota,
-		Content:           logContent,
-		TokenId:           info.TokenId,
-		Group:             info.UsingGroup,
-		Other:             other,
-		ExcludeQuotaStats: info.ExcludesQuotaStats(),
+		ChannelId: info.ChannelId,
+		ModelName: info.OriginModelName,
+		TokenName: tokenName,
+		Quota:     info.PriceData.Quota,
+		Content:   logContent,
+		TokenId:   info.TokenId,
+		Group:     info.UsingGroup,
+		Other:     other,
 	})
-	// 渠道开启「不计入额度统计」时仅跳过用户总消耗累加（请求计数照常），渠道自身消耗照常统计
-	model.UpdateUserUsedQuotaAndRequestCount(info.UserId, info.StatsQuota(info.PriceData.Quota))
+	model.UpdateUserUsedQuotaAndRequestCount(info.UserId, info.PriceData.Quota)
 	model.UpdateChannelUsedQuota(info.ChannelId, info.PriceData.Quota)
 }
 
@@ -246,23 +244,10 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 
 	var logType int
 	var logQuota int
-	// 渠道开启「不计入额度统计」时仅跳过用户总消耗累加与看板额度（请求计数照常），渠道自身消耗照常统计。
-	// 以任务提交时 BillingContext 快照的开关为准，避免结算期间切换开关导致初次扣费与补差口径不一致；
-	// 无快照的历史任务回退为读取渠道当前设置。
-	excludesQuotaStats := false
-	if bc := task.PrivateData.BillingContext; bc != nil {
-		excludesQuotaStats = bc.ExcludeQuotaStats
-	} else if channel, err := model.CacheGetChannel(task.ChannelId); err == nil {
-		excludesQuotaStats = channel.GetSetting().ExcludeQuotaStats
-	}
-	statsQuotaDelta := quotaDelta
-	if excludesQuotaStats {
-		statsQuotaDelta = 0
-	}
 	if quotaDelta > 0 {
 		logType = model.LogTypeConsume
 		logQuota = quotaDelta
-		model.UpdateUserUsedQuotaAndRequestCount(task.UserId, statsQuotaDelta)
+		model.UpdateUserUsedQuotaAndRequestCount(task.UserId, quotaDelta)
 		model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
 	} else {
 		logType = model.LogTypeRefund
@@ -276,20 +261,19 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		attachQuotaSaturationToOther(other, clamp)
 	}
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-		UserId:            task.UserId,
-		LogType:           logType,
-		Content:           reason,
-		ChannelId:         task.ChannelId,
-		ModelName:         taskModelName(task),
-		Quota:             logQuota,
-		TokenId:           task.PrivateData.TokenId,
-		Group:             task.Group,
-		Other:             other,
-		NodeName:          task.PrivateData.NodeName,
-		// 看板额度仅消费日志会写 quota_data，退款日志无需传排除标记
-		ExcludeQuotaStats: logType == model.LogTypeConsume && excludesQuotaStats,
+		UserId:    task.UserId,
+		LogType:   logType,
+		Content:   reason,
+		ChannelId: task.ChannelId,
+		ModelName: taskModelName(task),
+		Quota:     logQuota,
+		TokenId:   task.PrivateData.TokenId,
+		Group:     task.Group,
+		Other:     other,
+		NodeName:  task.PrivateData.NodeName,
 	})
 }
+
 // RecalculateTaskQuotaByTokens 根据实际 token 消耗重新计费（异步差额结算）。
 // 当任务成功且返回了 totalTokens 时，根据模型倍率和分组倍率重新计算实际扣费额度，
 // 与预扣费的差额进行补扣或退还。支持钱包和订阅计费来源。

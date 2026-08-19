@@ -224,8 +224,7 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, "+
 			"tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, modelName, relayInfo.FinalPreConsumedQuota))
 	} else {
-		// 渠道开启「不计入额度统计」时仅跳过用户总消耗累加（请求计数照常），渠道自身消耗照常统计
-		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, relayInfo.StatsQuota(quota))
+		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}
 
@@ -244,19 +243,18 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 	}
 	attachQuotaSaturation(ctx, relayInfo, other)
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
-		ChannelId:         relayInfo.ChannelId,
-		PromptTokens:      usage.InputTokens,
-		CompletionTokens:  usage.OutputTokens,
-		ModelName:         logModel,
-		TokenName:         tokenName,
-		Quota:             quota,
-		Content:           logContent,
-		TokenId:           relayInfo.TokenId,
-		UseTimeSeconds:    int(useTimeSeconds),
-		IsStream:          relayInfo.IsStream,
-		Group:             relayInfo.UsingGroup,
-		Other:             other,
-		ExcludeQuotaStats: relayInfo.ExcludesQuotaStats(),
+		ChannelId:        relayInfo.ChannelId,
+		PromptTokens:     usage.InputTokens,
+		CompletionTokens: usage.OutputTokens,
+		ModelName:        logModel,
+		TokenName:        tokenName,
+		Quota:            quota,
+		Content:          logContent,
+		TokenId:          relayInfo.TokenId,
+		UseTimeSeconds:   int(useTimeSeconds),
+		IsStream:         relayInfo.IsStream,
+		Group:            relayInfo.UsingGroup,
+		Other:            other,
 	})
 }
 
@@ -349,8 +347,7 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, "+
 			"tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, relayInfo.OriginModelName, relayInfo.FinalPreConsumedQuota))
 	} else {
-		// 渠道开启「不计入额度统计」时仅跳过用户总消耗累加（请求计数照常），渠道自身消耗照常统计
-		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, relayInfo.StatsQuota(quota))
+		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}
 
@@ -369,19 +366,18 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 	}
 	attachQuotaSaturation(ctx, relayInfo, other)
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
-		ChannelId:         relayInfo.ChannelId,
-		PromptTokens:      usage.PromptTokens,
-		CompletionTokens:  usage.CompletionTokens,
-		ModelName:         logModel,
-		TokenName:         tokenName,
-		Quota:             quota,
-		Content:           logContent,
-		TokenId:           relayInfo.TokenId,
-		UseTimeSeconds:    int(useTimeSeconds),
-		IsStream:          relayInfo.IsStream,
-		Group:             relayInfo.UsingGroup,
-		Other:             other,
-		ExcludeQuotaStats: relayInfo.ExcludesQuotaStats(),
+		ChannelId:        relayInfo.ChannelId,
+		PromptTokens:     usage.PromptTokens,
+		CompletionTokens: usage.CompletionTokens,
+		ModelName:        logModel,
+		TokenName:        tokenName,
+		Quota:            quota,
+		Content:          logContent,
+		TokenId:          relayInfo.TokenId,
+		UseTimeSeconds:   int(useTimeSeconds),
+		IsStream:         relayInfo.IsStream,
+		Group:            relayInfo.UsingGroup,
+		Other:            other,
 	})
 	gopool.Go(func() {
 		perfmetrics.RecordRelaySample(relayInfo, true, int64(usage.CompletionTokens))

@@ -128,8 +128,7 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 		return false
 	}
 
-	// 渠道开启「不计入额度统计」时仅跳过用户总消耗累加（请求计数照常），渠道自身消耗照常统计
-	model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, relayInfo.StatsQuota(feeQuota))
+	model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, feeQuota)
 	model.UpdateChannelUsedQuota(relayInfo.ChannelId, feeQuota)
 
 	useTimeSeconds := time.Now().Unix() - relayInfo.StartTime.Unix()
@@ -149,17 +148,16 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 	}
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
-		ChannelId:         relayInfo.ChannelId,
-		ModelName:         relayInfo.OriginModelName,
-		TokenName:         tokenName,
-		Quota:             feeQuota,
-		Content:           "Violation fee charged",
-		TokenId:           relayInfo.TokenId,
-		UseTimeSeconds:    int(useTimeSeconds),
-		IsStream:          relayInfo.IsStream,
-		Group:             relayInfo.UsingGroup,
-		Other:             other,
-		ExcludeQuotaStats: relayInfo.ExcludesQuotaStats(),
+		ChannelId:      relayInfo.ChannelId,
+		ModelName:      relayInfo.OriginModelName,
+		TokenName:      tokenName,
+		Quota:          feeQuota,
+		Content:        "Violation fee charged",
+		TokenId:        relayInfo.TokenId,
+		UseTimeSeconds: int(useTimeSeconds),
+		IsStream:       relayInfo.IsStream,
+		Group:          relayInfo.UsingGroup,
+		Other:          other,
 	})
 
 	return true

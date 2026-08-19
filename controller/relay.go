@@ -593,8 +593,6 @@ func RelayTask(c *gin.Context) {
 			OtherRatios:     relayInfo.PriceData.OtherRatios(),
 			OriginModelName: relayInfo.OriginModelName,
 			PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice,
-			// 快照提交时的「不计入额度统计」开关，差额结算以此为准
-			ExcludeQuotaStats: relayInfo.ExcludesQuotaStats(),
 		}
 		task.Quota = result.Quota
 		task.Data = result.TaskData
