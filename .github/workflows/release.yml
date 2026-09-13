@@ -8,10 +8,10 @@ on:
       name:
         description: 'reason'
         required: false
-  push:
-    tags:
-      - '*'
-      - '!*-alpha*'
+  # push:
+  #   tags:
+  #     - '*'
+  #     - '!*-alpha*'
 
 jobs:
   linux:
