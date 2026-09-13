@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -303,7 +303,7 @@ func TestImageGenerationCallCounterCommitCapsAtMaxImageN(t *testing.T) {
 	t.Parallel()
 
 	counter := &ImageGenerationCallCounter{}
-	for i := 0; i < dto.MaxImageN+3; i++ {
+	for i := range dto.MaxImageN + 3 {
 		idx := i
 		counter.Observe(&dto.ResponsesOutput{
 			Type:   dto.ResponsesOutputTypeImageGenerationCall,
